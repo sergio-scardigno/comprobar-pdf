@@ -38,7 +38,14 @@ async def upload_pdf(file: UploadFile = File(...)):
     images = extraer_imagenes_de_pdf(file_path, IMAGES_DIR)
     firmas = verificar_firmas_basico(file_path)
 
-    return JSONResponse({"message": "Archivo procesado", "firmas": firmas, "imagenes": images})
+    # Eliminar archivo PDF después de procesarlo
+    os.remove(file_path)
+
+    # Eliminar las imágenes extraídas después de procesarlas
+    for imagen in images:
+        os.remove(imagen)
+
+    return JSONResponse({"message": "Archivo procesado y archivos eliminados", "firmas": firmas, "imagenes": images})
 
 # Función para verificar firmas digitales
 def verificar_firmas_basico(ruta_pdf):
@@ -92,4 +99,3 @@ def extraer_imagenes_de_pdf(ruta_pdf, carpeta_destino):
     
     except Exception as e:
         return {"error": str(e)}
-
