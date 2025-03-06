@@ -1,38 +1,46 @@
 import os
 import shutil
-import threading
 import fitz  # PyMuPDF
 from PyPDF2 import PdfReader
-from fastapi import FastAPI, File, UploadFile
-import uvicorn
-import subprocess
+from fastapi import FastAPI, File, UploadFile, Request
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
+# Configuración de FastAPI
 app = FastAPI()
 
+# Configurar carpetas
 UPLOAD_DIR = "uploads"
-IMAGES_DIR = "extracted_images"
-
-# Asegurar carpetas de almacenamiento
+IMAGES_DIR = "static/images"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(IMAGES_DIR, exist_ok=True)
 
-@app.get("/")
-def home():
-    return {"message": "API funcionando. Usa /upload/ para subir un PDF."}
+# Conectar archivos estáticos y plantillas
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
+# Página principal (frontend)
+@app.get("/", response_class=HTMLResponse)
+async def serve_frontend(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+# Endpoint para subir PDFs
 @app.post("/upload/")
 async def upload_pdf(file: UploadFile = File(...)):
     file_path = os.path.join(UPLOAD_DIR, file.filename)
 
+    # Guardar el archivo
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
+    # Extraer imágenes y firmas
     images = extraer_imagenes_de_pdf(file_path, IMAGES_DIR)
     firmas = verificar_firmas_basico(file_path)
 
-    return {"message": "Archivo procesado", "firmas": firmas, "imagenes": images}
+    return JSONResponse({"message": "Archivo procesado", "firmas": firmas, "imagenes": images})
 
-
+# Función para verificar firmas digitales
 def verificar_firmas_basico(ruta_pdf):
     try:
         reader = PdfReader(ruta_pdf)
@@ -58,7 +66,7 @@ def verificar_firmas_basico(ruta_pdf):
     except Exception as e:
         return {"error": str(e)}
 
-
+# Función para extraer imágenes de un PDF
 def extraer_imagenes_de_pdf(ruta_pdf, carpeta_destino):
     try:
         documento = fitz.open(ruta_pdf)
@@ -85,13 +93,3 @@ def extraer_imagenes_de_pdf(ruta_pdf, carpeta_destino):
     except Exception as e:
         return {"error": str(e)}
 
-
-# Función para iniciar Streamlit
-def run_streamlit():
-    subprocess.run(["streamlit", "run", "frontend.py", "--server.port=8501", "--server.address=0.0.0.0"])
-
-
-# Iniciar FastAPI y Streamlit en paralelo
-if __name__ == "__main__":
-    threading.Thread(target=run_streamlit, daemon=True).start()
-    uvicorn.run(app, host="0.0.0.0", port=8000)
