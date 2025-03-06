@@ -1,8 +1,11 @@
-from fastapi import FastAPI, File, UploadFile
 import os
+import shutil
+import threading
 import fitz  # PyMuPDF
 from PyPDF2 import PdfReader
-import shutil
+from fastapi import FastAPI, File, UploadFile
+import uvicorn
+import subprocess
 
 app = FastAPI()
 
@@ -21,14 +24,10 @@ def home():
 async def upload_pdf(file: UploadFile = File(...)):
     file_path = os.path.join(UPLOAD_DIR, file.filename)
 
-    # Guardar el archivo temporalmente
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Extraer imágenes
     images = extraer_imagenes_de_pdf(file_path, IMAGES_DIR)
-
-    # Verificar firmas
     firmas = verificar_firmas_basico(file_path)
 
     return {"message": "Archivo procesado", "firmas": firmas, "imagenes": images}
@@ -87,3 +86,12 @@ def extraer_imagenes_de_pdf(ruta_pdf, carpeta_destino):
         return {"error": str(e)}
 
 
+# Función para iniciar Streamlit
+def run_streamlit():
+    subprocess.run(["streamlit", "run", "frontend.py", "--server.port=8501", "--server.address=0.0.0.0"])
+
+
+# Iniciar FastAPI y Streamlit en paralelo
+if __name__ == "__main__":
+    threading.Thread(target=run_streamlit, daemon=True).start()
+    uvicorn.run(app, host="0.0.0.0", port=8000)

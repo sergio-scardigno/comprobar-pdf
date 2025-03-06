@@ -5,3 +5,7 @@ uvicorn
 pypdf2
 pymupdf
 python-multipart
+fastapi
+uvicorn
+streamlit
+
