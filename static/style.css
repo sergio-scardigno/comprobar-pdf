@@ -32,7 +32,5 @@ img {
 }
 
 footer {
-    text-align: center;
-    padding: 20px;
-    background-color: #f8f9fa; /* Opcional: color de fondo */
+    align-content: center;
 }
