@@ -13,10 +13,14 @@ IMAGES_DIR = "extracted_images"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(IMAGES_DIR, exist_ok=True)
 
+@app.get("/")
+def home():
+    return {"message": "API funcionando. Usa /upload/ para subir un PDF."}
+
 @app.post("/upload/")
 async def upload_pdf(file: UploadFile = File(...)):
-    file_path = f"{UPLOAD_DIR}/{file.filename}"
-    
+    file_path = os.path.join(UPLOAD_DIR, file.filename)
+
     # Guardar el archivo temporalmente
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
@@ -71,7 +75,7 @@ def extraer_imagenes_de_pdf(ruta_pdf, carpeta_destino):
                 imagen_bytes = imagen_base["image"]
                 extension = imagen_base["ext"]
 
-                imagen_path = f"{carpeta_destino}/pagina_{pagina_num + 1}_imagen_{img_index + 1}.{extension}"
+                imagen_path = os.path.join(carpeta_destino, f"pagina_{pagina_num + 1}_imagen_{img_index + 1}.{extension}")
                 with open(imagen_path, "wb") as img_file:
                     img_file.write(imagen_bytes)
                 
@@ -81,4 +85,5 @@ def extraer_imagenes_de_pdf(ruta_pdf, carpeta_destino):
     
     except Exception as e:
         return {"error": str(e)}
+
 
