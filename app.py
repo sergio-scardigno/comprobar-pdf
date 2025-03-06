@@ -16,6 +16,9 @@ IMAGES_DIR = "static/images"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(IMAGES_DIR, exist_ok=True)
 
+# Ruta de archivo temporal para almacenar los archivos a eliminar
+FILES_TO_DELETE = "files_to_delete.txt"
+
 # Conectar archivos estáticos y plantillas
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
@@ -38,14 +41,13 @@ async def upload_pdf(file: UploadFile = File(...)):
     images = extraer_imagenes_de_pdf(file_path, IMAGES_DIR)
     firmas = verificar_firmas_basico(file_path)
 
-    # Eliminar archivo PDF después de procesarlo
-    os.remove(file_path)
+    # Guardar archivos a eliminar en el archivo temporal
+    with open(FILES_TO_DELETE, "a") as f:
+        f.write(file_path + "\n")
+        for imagen in images:
+            f.write(imagen + "\n")
 
-    # Eliminar las imágenes extraídas después de procesarlas
-    for imagen in images:
-        os.remove(imagen)
-
-    return JSONResponse({"message": "Archivo procesado y archivos eliminados", "firmas": firmas, "imagenes": images})
+    return JSONResponse({"message": "Archivo procesado, pero no eliminado. Los archivos serán eliminados en la siguiente ejecución.", "firmas": firmas, "imagenes": images})
 
 # Función para verificar firmas digitales
 def verificar_firmas_basico(ruta_pdf):
@@ -99,3 +101,28 @@ def extraer_imagenes_de_pdf(ruta_pdf, carpeta_destino):
     
     except Exception as e:
         return {"error": str(e)}
+
+# Endpoint para eliminar archivos antiguos
+@app.get("/delete_files/")
+async def delete_files():
+    # Verificar si existe el archivo de archivos a eliminar
+    if os.path.exists(FILES_TO_DELETE):
+        with open(FILES_TO_DELETE, "r") as f:
+            files_to_delete = f.readlines()
+        
+        # Eliminar archivos listados
+        for file_path in files_to_delete:
+            file_path = file_path.strip()  # Eliminar saltos de línea
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    print(f"Error al eliminar {file_path}: {e}")
+        
+        # Limpiar el archivo de archivos a eliminar
+        os.remove(FILES_TO_DELETE)
+        
+        return JSONResponse({"message": "Archivos eliminados correctamente."})
+    
+    return JSONResponse({"message": "No hay archivos para eliminar."})
+
